@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 # Configuration
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
-JIRA_BASE_URL = "https://smily.atlassian.net"
+JIRA_BASE_URL = "https://bookingsync.atlassian.net"
 JIRA_TOKEN = os.environ["JIRA_API_TOKEN"]
 JIRA_EMAIL = os.environ["JIRA_EMAIL"]
 SLACK_TOKEN = os.environ["SLACK_BOT_TOKEN"]
