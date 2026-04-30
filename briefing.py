@@ -320,6 +320,7 @@ Rules:
             return data["content"][0]["text"]
         else:
             print(f"Warning: Claude API failed with status {response.status_code}")
+            print(f"Debug: Claude error response: {response.text[:500]}")
             return f"Failed to generate briefing. Raw data:\n\nJIRA:\n{jira_data}\n\nSLACK:\n{slack_data}"
 
     except Exception as e:
