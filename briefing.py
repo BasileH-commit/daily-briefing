@@ -32,7 +32,8 @@ def fetch_jira():
 
     results = {
         "new_tickets": [],
-        "mentioned_tickets": []
+        "mentioned_tickets": [],
+        "ready_to_dev": []
     }
 
     # Call A: New To Do tickets created in last 24h
@@ -91,10 +92,10 @@ def fetch_jira():
 
     # Call B: Tickets where Basile is mentioned in comments
     try:
-        jql_mentioned = 'project in (CMA, CMB) AND comment ~ "Basile" AND updated >= -1d ORDER BY updated DESC'
+        jql_mentioned = 'project in (CMA, CMB) AND comment ~ "Basile" AND updated >= -1d ORDER BY created ASC'
         params_mentioned = {
             "jql": jql_mentioned,
-            "fields": "summary,status,assignee,priority,updated,project",
+            "fields": "summary,status,assignee,priority,updated,created,project",
             "maxResults": 20
         }
 
@@ -133,14 +134,86 @@ def fetch_jira():
                 except:
                     updated_fmt = "Unknown"
 
+                # Created date
+                created_str = fields.get("created", "")
+                try:
+                    created_dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                    created_fmt = created_dt.strftime("%b %d %H:%M")
+                    # Calculate age in days
+                    age_days = (datetime.now(created_dt.tzinfo) - created_dt).days
+                    age_str = f"{age_days}d ago" if age_days > 0 else "today"
+                except:
+                    created_fmt = "Unknown"
+                    age_str = ""
+
                 results["mentioned_tickets"].append(
                     f"[{key}] {summary}\n"
-                    f"  Status: {status_name} | Assignee: {assignee_name} | Last update: {updated_fmt}"
+                    f"  Created: {created_fmt} ({age_str}) | Status: {status_name} | Assignee: {assignee_name} | Last update: {updated_fmt}"
                 )
         else:
             print(f"Warning: Jira mentioned tickets query failed with status {response.status_code}")
     except Exception as e:
         print(f"Warning: Failed to fetch mentioned Jira tickets: {e}")
+
+    # Call C: Tickets in "Ready to Dev" status
+    try:
+        jql_ready = 'project in (CMA, CMB) AND status = "Ready to Dev" ORDER BY created ASC'
+        params_ready = {
+            "jql": jql_ready,
+            "fields": "summary,status,assignee,priority,updated,created,project",
+            "maxResults": 30
+        }
+
+        response = requests.get(
+            f"{JIRA_BASE_URL}/rest/api/3/search/jql",
+            auth=auth,
+            headers=headers,
+            params=params_ready,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            for issue in data.get("issues", []):
+                key = issue["key"]
+                fields = issue["fields"]
+                summary = fields.get("summary", "No summary")
+
+                # Assignee
+                assignee = fields.get("assignee", {})
+                assignee_name = assignee.get("displayName", "Unassigned") if assignee else "Unassigned"
+
+                # Priority
+                priority = fields.get("priority", {})
+                priority_name = priority.get("name", "Medium") if priority else "Medium"
+
+                # Created date and age
+                created_str = fields.get("created", "")
+                try:
+                    created_dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                    created_fmt = created_dt.strftime("%b %d %H:%M")
+                    age_days = (datetime.now(created_dt.tzinfo) - created_dt).days
+                    age_str = f"{age_days}d ago" if age_days > 0 else "today"
+                except:
+                    created_fmt = "Unknown"
+                    age_str = ""
+
+                # Updated date
+                updated_str = fields.get("updated", "")
+                try:
+                    updated_dt = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+                    updated_fmt = updated_dt.strftime("%b %d %H:%M")
+                except:
+                    updated_fmt = "Unknown"
+
+                results["ready_to_dev"].append(
+                    f"[{key}] {summary}\n"
+                    f"  Created: {created_fmt} ({age_str}) | Assignee: {assignee_name} | Priority: {priority_name} | Last update: {updated_fmt}"
+                )
+        else:
+            print(f"Warning: Jira ready to dev query failed with status {response.status_code}")
+    except Exception as e:
+        print(f"Warning: Failed to fetch ready to dev Jira tickets: {e}")
 
     # Format output
     output = "NEW TICKETS (To Do, created last 24h):\n"
@@ -149,9 +222,15 @@ def fetch_jira():
     else:
         output += "  none"
 
-    output += "\n\nTICKETS WHERE YOU WERE MENTIONED IN COMMENTS (last 24h):\n"
+    output += "\n\nTICKETS WHERE YOU WERE MENTIONED IN COMMENTS (last 24h, sorted by age):\n"
     if results["mentioned_tickets"]:
         output += "\n".join(results["mentioned_tickets"])
+    else:
+        output += "  none"
+
+    output += "\n\nREADY TO DEV (sorted by age, oldest first):\n"
+    if results["ready_to_dev"]:
+        output += "\n".join(results["ready_to_dev"])
     else:
         output += "  none"
 
@@ -284,14 +363,16 @@ SLACK — recent messages from key channels:
 
 Write a concise morning briefing in this format:
 1. 🆕 New tickets to triage (from the To Do list above — summarise each in one line)
-2. 💬 Tickets where you were mentioned (action required?)
-3. 🔴 Blockers / urgent signals from Slack
-4. 📋 Suggested focus for today (top 2–3 items max)
+2. 💬 Tickets where you were mentioned (action required? highlight old tickets)
+3. 🛠️ Ready to Dev tickets (highlight old ones waiting for dev)
+4. 🔴 Blockers / urgent signals from Slack
+5. 📋 Suggested focus for today (top 2–3 items max, prioritize old tickets)
 
 Rules:
 - Bullet points only, no prose paragraphs
-- Max 30 lines total
+- Max 35 lines total
 - If a section has nothing to report, write "nothing to report"
+- Highlight tickets that are >7 days old as requiring urgent attention
 - Write in English"""
 
     try:
