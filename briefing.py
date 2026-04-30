@@ -44,7 +44,7 @@ def fetch_jira():
             "maxResults": 30
         }
 
-        url = f"{JIRA_BASE_URL}/rest/api/3/search"
+        url = f"{JIRA_BASE_URL}/rest/api/3/search/jql"
         response = requests.get(
             url,
             auth=auth,
@@ -52,11 +52,6 @@ def fetch_jira():
             params=params_new,
             timeout=30
         )
-
-        print(f"Debug: Jira URL: {url}")
-        print(f"Debug: Jira response status: {response.status_code}")
-        if response.status_code != 200:
-            print(f"Debug: Jira response body: {response.text[:500]}")
 
         if response.status_code == 200:
             data = response.json()
@@ -104,7 +99,7 @@ def fetch_jira():
         }
 
         response = requests.get(
-            f"{JIRA_BASE_URL}/rest/api/3/search",
+            f"{JIRA_BASE_URL}/rest/api/3/search/jql",
             auth=auth,
             headers=headers,
             params=params_mentioned,
