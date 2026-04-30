@@ -81,8 +81,9 @@ def fetch_jira():
                 priority = fields.get("priority", {})
                 priority_name = priority.get("name", "Medium") if priority else "Medium"
 
+                ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["new_tickets"].append(
-                    f"[{key}] {summary}\n"
+                    f"[{key}]({ticket_url}) {summary}\n"
                     f"  Created: {created_fmt} by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name}"
                 )
         else:
@@ -146,8 +147,9 @@ def fetch_jira():
                     created_fmt = "Unknown"
                     age_str = ""
 
+                ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["mentioned_tickets"].append(
-                    f"[{key}] {summary}\n"
+                    f"[{key}]({ticket_url}) {summary}\n"
                     f"  Created: {created_fmt} ({age_str}) | Status: {status_name} | Assignee: {assignee_name} | Last update: {updated_fmt}"
                 )
         else:
@@ -155,9 +157,9 @@ def fetch_jira():
     except Exception as e:
         print(f"Warning: Failed to fetch mentioned Jira tickets: {e}")
 
-    # Call C: Tickets in "Ready to Dev" status
+    # Call C: Tickets in "Ready for Dev" status
     try:
-        jql_ready = 'project in (CMA, CMB) AND status = "Ready to Dev" ORDER BY created ASC'
+        jql_ready = 'project in (CMA, CMB) AND status = "Ready for Dev" ORDER BY created ASC'
         params_ready = {
             "jql": jql_ready,
             "fields": "summary,status,assignee,priority,updated,created,project",
@@ -206,8 +208,9 @@ def fetch_jira():
                 except:
                     updated_fmt = "Unknown"
 
+                ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["ready_to_dev"].append(
-                    f"[{key}] {summary}\n"
+                    f"[{key}]({ticket_url}) {summary}\n"
                     f"  Created: {created_fmt} ({age_str}) | Assignee: {assignee_name} | Priority: {priority_name} | Last update: {updated_fmt}"
                 )
         else:
@@ -228,7 +231,7 @@ def fetch_jira():
     else:
         output += "  none"
 
-    output += "\n\nREADY TO DEV (sorted by age, oldest first):\n"
+    output += "\n\nREADY FOR DEV (sorted by age, oldest first):\n"
     if results["ready_to_dev"]:
         output += "\n".join(results["ready_to_dev"])
     else:
@@ -364,7 +367,7 @@ SLACK — recent messages from key channels:
 Write a concise morning briefing in this format:
 1. 🆕 New tickets to triage (from the To Do list above — summarise each in one line)
 2. 💬 Tickets where you were mentioned (action required? highlight old tickets)
-3. 🛠️ Ready to Dev tickets (highlight old ones waiting for dev)
+3. 🛠️ Ready for Dev tickets (highlight old ones waiting for dev)
 4. 🔴 Blockers / urgent signals from Slack
 5. 📋 Suggested focus for today (top 2–3 items max, prioritize old tickets)
 
