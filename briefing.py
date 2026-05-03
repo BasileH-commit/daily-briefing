@@ -38,10 +38,10 @@ def fetch_jira():
 
     # Call A: New To Do tickets created in last 24h
     try:
-        jql_new = 'project in (CMA, CMB) AND status = "To Do" AND created >= -1d ORDER BY created DESC'
+        jql_new = 'project in (CMA, CMB) AND status = "To Do" AND created >= -1d ORDER BY created ASC'
         params_new = {
             "jql": jql_new,
-            "fields": "summary,status,creator,created,assignee,priority,project",
+            "fields": "summary,status,creator,created,assignee,priority,project,issuetype",
             "maxResults": 30
         }
 
@@ -81,10 +81,14 @@ def fetch_jira():
                 priority = fields.get("priority", {})
                 priority_name = priority.get("name", "Medium") if priority else "Medium"
 
+                # Issue type
+                issuetype = fields.get("issuetype", {})
+                issuetype_name = issuetype.get("name", "Task") if issuetype else "Task"
+
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["new_tickets"].append(
                     f"• [{key}]({ticket_url}) {summary}\n"
-                    f"  Created: {created_fmt} by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name}"
+                    f"  Type: {issuetype_name} | Created: {created_fmt} by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name}"
                 )
         else:
             print(f"Warning: Jira new tickets query failed with status {response.status_code}")
@@ -96,7 +100,7 @@ def fetch_jira():
         jql_mentioned = 'project in (CMA, CMB) AND comment ~ "Basile" AND updated >= -1d ORDER BY created ASC'
         params_mentioned = {
             "jql": jql_mentioned,
-            "fields": "summary,status,assignee,priority,updated,created,project",
+            "fields": "summary,status,assignee,priority,updated,created,project,creator,issuetype",
             "maxResults": 20
         }
 
@@ -147,10 +151,18 @@ def fetch_jira():
                     created_fmt = "Unknown"
                     age_str = ""
 
+                # Creator
+                creator = fields.get("creator", {})
+                creator_name = creator.get("displayName", "Unknown") if creator else "Unknown"
+
+                # Issue type
+                issuetype = fields.get("issuetype", {})
+                issuetype_name = issuetype.get("name", "Task") if issuetype else "Task"
+
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["mentioned_tickets"].append(
                     f"• [{key}]({ticket_url}) {summary}\n"
-                    f"  Created: {created_fmt} ({age_str}) | Status: {status_name} | Assignee: {assignee_name} | Last update: {updated_fmt}"
+                    f"  Type: {issuetype_name} | Created: {created_fmt} ({age_str}) by {creator_name} | Status: {status_name} | Assignee: {assignee_name} | Last update: {updated_fmt}"
                 )
         else:
             print(f"Warning: Jira mentioned tickets query failed with status {response.status_code}")
@@ -162,7 +174,7 @@ def fetch_jira():
         jql_ready = 'project in (CMA, CMB) AND status = "Ready for Dev" ORDER BY created ASC'
         params_ready = {
             "jql": jql_ready,
-            "fields": "summary,status,assignee,priority,updated,created,project",
+            "fields": "summary,status,assignee,priority,updated,created,project,creator,issuetype",
             "maxResults": 30
         }
 
@@ -208,10 +220,18 @@ def fetch_jira():
                 except:
                     updated_fmt = "Unknown"
 
+                # Creator
+                creator = fields.get("creator", {})
+                creator_name = creator.get("displayName", "Unknown") if creator else "Unknown"
+
+                # Issue type
+                issuetype = fields.get("issuetype", {})
+                issuetype_name = issuetype.get("name", "Task") if issuetype else "Task"
+
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["ready_to_dev"].append(
                     f"• [{key}]({ticket_url}) {summary}\n"
-                    f"  Created: {created_fmt} ({age_str}) | Assignee: {assignee_name} | Priority: {priority_name} | Last update: {updated_fmt}"
+                    f"  Type: {issuetype_name} | Created: {created_fmt} ({age_str}) by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name} | Last update: {updated_fmt}"
                 )
         else:
             print(f"Warning: Jira ready to dev query failed with status {response.status_code}")
