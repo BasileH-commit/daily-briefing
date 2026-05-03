@@ -83,7 +83,7 @@ def fetch_jira():
 
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["new_tickets"].append(
-                    f"[{key}]({ticket_url}) {summary}\n"
+                    f"• [{key}]({ticket_url}) {summary}\n"
                     f"  Created: {created_fmt} by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name}"
                 )
         else:
@@ -149,7 +149,7 @@ def fetch_jira():
 
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["mentioned_tickets"].append(
-                    f"[{key}]({ticket_url}) {summary}\n"
+                    f"• [{key}]({ticket_url}) {summary}\n"
                     f"  Created: {created_fmt} ({age_str}) | Status: {status_name} | Assignee: {assignee_name} | Last update: {updated_fmt}"
                 )
         else:
@@ -210,7 +210,7 @@ def fetch_jira():
 
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["ready_to_dev"].append(
-                    f"[{key}]({ticket_url}) {summary}\n"
+                    f"• [{key}]({ticket_url}) {summary}\n"
                     f"  Created: {created_fmt} ({age_str}) | Assignee: {assignee_name} | Priority: {priority_name} | Last update: {updated_fmt}"
                 )
         else:
