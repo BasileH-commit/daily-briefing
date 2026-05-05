@@ -33,7 +33,9 @@ def fetch_jira():
     results = {
         "new_tickets": [],
         "mentioned_tickets": [],
-        "ready_to_dev": []
+        "ready_to_dev": [],
+        "cma_count": 0,
+        "cmb_count": 0
     }
 
     # Call A: New To Do tickets created in last 24h
@@ -66,8 +68,12 @@ def fetch_jira():
                 try:
                     created_dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
                     created_fmt = created_dt.strftime("%b %d %H:%M")
+                    # Calculate age in days
+                    age_days = (datetime.now(created_dt.tzinfo) - created_dt).days
+                    age_str = f"{age_days}d" if age_days > 0 else "<1d"
                 except:
                     created_fmt = "Unknown"
+                    age_str = "?"
 
                 # Creator
                 creator = fields.get("creator", {})
@@ -85,10 +91,18 @@ def fetch_jira():
                 issuetype = fields.get("issuetype", {})
                 issuetype_name = issuetype.get("name", "Task") if issuetype else "Task"
 
+                # Track project counts
+                project = fields.get("project", {})
+                project_key = project.get("key", "") if project else ""
+                if project_key == "CMA":
+                    results["cma_count"] += 1
+                elif project_key == "CMB":
+                    results["cmb_count"] += 1
+
                 ticket_url = f"{JIRA_BASE_URL}/browse/{key}"
                 results["new_tickets"].append(
                     f"• [{key}]({ticket_url}) {summary}\n"
-                    f"  Type: {issuetype_name} | Created: {created_fmt} by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name}"
+                    f"  Type: {issuetype_name} | Age: {age_str} | Created: {created_fmt} by {creator_name} | Assignee: {assignee_name} | Priority: {priority_name}"
                 )
         else:
             print(f"Warning: Jira new tickets query failed with status {response.status_code}")
@@ -238,8 +252,11 @@ def fetch_jira():
     except Exception as e:
         print(f"Warning: Failed to fetch ready to dev Jira tickets: {e}")
 
-    # Format output
-    output = "NEW TICKETS (To Do, created last 24h):\n"
+    # Format output with summary
+    total_new = results["cma_count"] + results["cmb_count"]
+    output = f"📊 SUMMARY: {total_new} new tickets (CMA: {results['cma_count']}, CMB: {results['cmb_count']})\n\n"
+
+    output += "NEW TICKETS (To Do, created last 24h, sorted by age - oldest first):\n"
     if results["new_tickets"]:
         output += "\n".join(results["new_tickets"])
     else:
@@ -385,17 +402,19 @@ SLACK — recent messages from key channels:
 {slack_data}
 
 Write a concise morning briefing in this format:
-1. 🆕 New tickets to triage (from the To Do list above — summarise each in one line)
-2. 💬 Tickets where you were mentioned (action required? highlight old tickets)
-3. 🛠️ Ready for Dev tickets (highlight old ones waiting for dev)
-4. 🔴 Blockers / urgent signals from Slack
-5. 📋 Suggested focus for today (top 2–3 items max, prioritize old tickets)
+1. 🔥 TOP PRIORITY - Respond to these first (identify 2-3 most urgent from new tickets based on: type=Tech Support, high priority, customer-facing issues, old age)
+2. 🆕 New tickets to triage (from the To Do list above — summarise each in one line)
+3. 💬 Tickets where you were mentioned (action required? highlight old tickets)
+4. 🛠️ Ready for Dev tickets (highlight old ones waiting for dev)
+5. 🔴 Blockers / urgent signals from Slack
+6. 📋 Suggested focus for today (top 2–3 items max, prioritize old tickets)
 
 Rules:
 - Bullet points only, no prose paragraphs
-- Max 35 lines total
+- Max 40 lines total
 - If a section has nothing to report, write "nothing to report"
 - Highlight tickets that are >7 days old as requiring urgent attention
+- For TOP PRIORITY: look for Tech Support type, High/Critical priority, customer complaints, blocking issues
 - Write in English"""
 
     try:
