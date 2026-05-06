@@ -18,6 +18,7 @@ SLACK_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_OUTPUT_CHANNEL = "C0B0HFGJXC5"  # Daily briefing channel
 
 BASILE_ACCOUNT_ID = "712020:f167fc0d-062a-4eeb-81e0-033668dce1b4"
+BASILE_SLACK_USER_ID = "U0655HH55NY"  # Basile's Slack user ID (found in logs)
 
 
 def fetch_jira():
@@ -326,18 +327,19 @@ def fetch_slack_channel(channel_id, channel_name):
 
 def fetch_slack():
     """
-    Auto-discover all channels the bot is a member of and fetch their recent messages.
+    Scan all channels where Basile is a member and fetch their recent messages.
+    Auto-joins bot to public channels where Basile is a member.
     Returns formatted string with messages grouped by channel.
     """
     try:
-        # Get list of all channels the bot is a member of
+        # Get list of ALL channels (public and private)
         response = requests.get(
             "https://slack.com/api/conversations.list",
             headers={"Authorization": f"Bearer {SLACK_TOKEN}"},
             params={
                 "types": "public_channel,private_channel",
                 "exclude_archived": "true",
-                "limit": 200
+                "limit": 1000
             },
             timeout=30
         )
@@ -351,28 +353,83 @@ def fetch_slack():
             print(f"Warning: Slack API error: {data.get('error')}")
             return "No Slack data available"
 
-        channels = data.get("channels", [])
+        all_channels = data.get("channels", [])
+        print(f"Found {len(all_channels)} total channels in workspace")
 
-        # Filter to channels the bot is a member of
-        member_channels = [ch for ch in channels if ch.get("is_member", False)]
-
-        print(f"Found {len(member_channels)} channels bot is member of")
-
-        # Fetch messages from each channel
-        all_messages = {}
-        for channel in member_channels:
+        # Find channels where Basile is a member
+        basile_channels = []
+        for channel in all_channels:
             channel_id = channel["id"]
             channel_name = channel.get("name", "unknown")
+            is_private = channel.get("is_private", False)
+            bot_is_member = channel.get("is_member", False)
 
-            messages = fetch_slack_channel(channel_id, channel_name)
-            if messages:
-                all_messages[channel_name] = messages
+            # Check if Basile is a member of this channel
+            try:
+                members_response = requests.get(
+                    "https://slack.com/api/conversations.members",
+                    headers={"Authorization": f"Bearer {SLACK_TOKEN}"},
+                    params={"channel": channel_id},
+                    timeout=10
+                )
+
+                if members_response.status_code == 200:
+                    members_data = members_response.json()
+                    if members_data.get("ok"):
+                        members = members_data.get("members", [])
+                        if BASILE_SLACK_USER_ID in members:
+                            basile_channels.append({
+                                "id": channel_id,
+                                "name": channel_name,
+                                "is_private": is_private,
+                                "bot_is_member": bot_is_member
+                            })
+            except Exception as e:
+                print(f"Warning: Failed to check members for {channel_name}: {e}")
+                continue
+
+        print(f"Found {len(basile_channels)} channels where Basile is a member")
+
+        # Auto-join bot to public channels where it's not already a member
+        for channel in basile_channels:
+            if not channel["bot_is_member"] and not channel["is_private"]:
+                try:
+                    join_response = requests.post(
+                        "https://slack.com/api/conversations.join",
+                        headers={"Authorization": f"Bearer {SLACK_TOKEN}"},
+                        json={"channel": channel["id"]},
+                        timeout=10
+                    )
+                    if join_response.status_code == 200:
+                        join_data = join_response.json()
+                        if join_data.get("ok"):
+                            print(f"Auto-joined #{channel['name']}")
+                            channel["bot_is_member"] = True
+                except Exception as e:
+                    print(f"Warning: Failed to join #{channel['name']}: {e}")
+
+        # Fetch messages from all Basile's channels (where bot has access)
+        all_messages = {}
+        skipped_private = []
+
+        for channel in basile_channels:
+            if channel["bot_is_member"]:
+                messages = fetch_slack_channel(channel["id"], channel["name"])
+                if messages:
+                    all_messages[channel["name"]] = messages
+            elif channel["is_private"]:
+                skipped_private.append(channel["name"])
 
         # Format output
+        output_parts = []
+
+        if skipped_private:
+            output_parts.append(f"⚠️ Skipped {len(skipped_private)} private channels (bot not invited): {', '.join(skipped_private[:5])}")
+            output_parts.append("")
+
         if not all_messages:
             return "No recent messages in monitored channels"
 
-        output_parts = []
         for channel_name, messages in sorted(all_messages.items()):
             output_parts.append(f"#{channel_name}:")
             for msg in messages:
