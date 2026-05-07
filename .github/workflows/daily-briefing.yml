@@ -3,9 +3,9 @@ name: Daily PM Briefing
 on:
   schedule:
     # Runs at 7 AM UTC every weekday (Mon-Fri)
-    # = 9 AM Paris time during summer (UTC+2)
-    # = 8 AM Paris time during winter (UTC+1)
-    - cron: '0 7 * * 1-5'
+    # Adjusted to 5 AM UTC to compensate for GitHub Actions 2-hour delay
+    # Target: 9 AM Paris time during summer (UTC+2)
+    - cron: '0 5 * * 1-5'
   workflow_dispatch:          # Manual trigger from GitHub Actions UI
 
 jobs:
