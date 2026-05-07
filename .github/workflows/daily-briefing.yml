@@ -2,8 +2,11 @@ name: Daily PM Briefing
 
 on:
   schedule:
-    - cron: '0 7 * * 1-5'   # 7 AM UTC = 9 AM Paris (winter) / 10 AM (summer)
-  workflow_dispatch:          # allow manual trigger from GitHub Actions UI
+    # Runs at 7 AM UTC every weekday (Mon-Fri)
+    # = 9 AM Paris time during summer (UTC+2)
+    # = 8 AM Paris time during winter (UTC+1)
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch:          # Manual trigger from GitHub Actions UI
 
 jobs:
   briefing:
